@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid and Multi-Cloud Security Assessment</title>
+    
+    <!-- React and ReactDOM from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel Standalone for JSX transformation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        #root {
+            width: 100%;
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState } = React;
+        
+        const SecurityAssessment = () => {
+          const [currentSection, setCurrentSection] = useState(0);
+          const [responses, setResponses] = useState({});
+          const [comments, setComments] = useState({});
+          const [vendors, setVendors] = useState({});
+          const [organizationInfo, setOrganizationInfo] = useState({
+            organization: '',
+            assessor: '',
+            date: new Date().toISOString().split('T')[0]
+          });
+
+          const sections = [
+            {
+              title: "Identity & Access Management (IAM)",
+              objective: "Ensure least privilege and secure identity",
+              questions: [
+                {
+                  id: "iam_1",
+                  question: "Do all user and service accounts follow least privilege?",
+                  options: ["A) Yes, always", "B) Mostly, some exceptions", "C) No, many over-permissioned"],
+                  tools: "Cloud-native: AWS IAM, Azure AD, GCP IAM; Vendor: Okta, CyberArk"
+                },
+                {
+                  id: "iam_2",
+                  question: "Is multi-factor authentication (MFA) enforced for all admin accounts?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "Cloud-native MFA, Duo, Microsoft Authenticator"
+                },
+                {
+                  id: "iam_3",
+                  question: "Are service account keys rotated regularly?",
+                  options: ["A) Yes, automated", "B) Occasionally manual", "C) Never"],
+                  tools: "AWS KMS/Secrets Manager, Azure Key Vault, GCP Secret Manager"
+                },
+                {
+                  id: "iam_4",
+                  question: "Are temporary credentials used instead of long-lived ones where possible?",
+                  options: ["A) Always", "B) Sometimes", "C) Never"],
+                  tools: "Cloud-native: STS, Azure Managed Identities, GCP Workload Identity"
+                },
+                {
+                  id: "iam_5",
+                  question: "Is cross-account / cross-project access reviewed periodically?",
+                  options: ["A) Yes, quarterly", "B) Rarely", "C) Never"],
+                  tools: "Cloud-native review tooling; Vendor: SailPoint, Saviynt"
+                }
+              ]
+            },
+            {
+              title: "Data Protection & Encryption",
+              objective: "Protect data at rest and in transit",
+              questions: [
+                {
+                  id: "data_1",
+                  question: "Is all sensitive data encrypted at rest?",
+                  options: ["A) Yes, fully", "B) Partially", "C) No"],
+                  tools: "AWS KMS, Azure Key Vault, GCP KMS; Vendor: Thales, Venafi"
+                },
+                {
+                  id: "data_2",
+                  question: "Is encryption in transit enforced (TLS) for all workloads?",
+                  options: ["A) Yes", "B) Partial", "C) No"],
+                  tools: "Cloud-native TLS, Azure Application Gateway, AWS ELB TLS"
+                },
+                {
+                  id: "data_3",
+                  question: "Are customer-managed keys (CMKs) used where required?",
+                  options: ["A) Yes, consistently", "B) Sometimes", "C) No"],
+                  tools: "KMS / Key Vault / CMEK"
+                },
+                {
+                  id: "data_4",
+                  question: "Are secrets stored securely in managed vaults?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "Cloud-native vaults; Vendor: HashiCorp Vault, CyberArk"
+                },
+                {
+                  id: "data_5",
+                  question: "Is key rotation automated?",
+                  options: ["A) Yes", "B) Manual rotation", "C) Never"],
+                  tools: "Cloud-native automation; Vendor: Thales, Fortanix"
+                }
+              ]
+            },
+            {
+              title: "Network Security",
+              objective: "Protect workloads and prevent lateral movement",
+              questions: [
+                {
+                  id: "network_1",
+                  question: "Are networks segmented by environment (prod/dev/test)?",
+                  options: ["A) Fully segmented", "B) Partially", "C) Not segmented"],
+                  tools: "Cloud-native: VPC/VNet/Subnets; Vendor: Palo Alto, Fortinet"
+                },
+                {
+                  id: "network_2",
+                  question: "Are security groups / firewalls least-permissive?",
+                  options: ["A) Yes", "B) Mostly", "C) No"],
+                  tools: "AWS SG/NACL, Azure NSG, GCP Firewall; Vendor: Check Point, Palo Alto"
+                },
+                {
+                  id: "network_3",
+                  question: "Are private endpoints used for critical services?",
+                  options: ["A) Yes", "B) Some", "C) None"],
+                  tools: "AWS PrivateLink, Azure Private Endpoint, GCP PSC"
+                },
+                {
+                  id: "network_4",
+                  question: "Are DDoS protections enabled?",
+                  options: ["A) Yes", "B) Partial", "C) No"],
+                  tools: "AWS Shield, Azure DDoS Protection, GCP Cloud Armor"
+                },
+                {
+                  id: "network_5",
+                  question: "Is egress traffic controlled and monitored?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "Cloud-native egress monitoring; Vendor: Zscaler, Palo Alto Prisma Access"
+                }
+              ]
+            },
+            {
+              title: "Logging & Monitoring",
+              objective: "Detect threats and maintain audit trails",
+              questions: [
+                {
+                  id: "logging_1",
+                  question: "Are control-plane logs enabled for all accounts/projects?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "AWS CloudTrail, Azure Activity Logs, GCP Audit Logs"
+                },
+                {
+                  id: "logging_2",
+                  question: "Are data-plane logs captured for critical services?",
+                  options: ["A) Yes", "B) Some", "C) No"],
+                  tools: "Cloud-native logging services"
+                },
+                {
+                  id: "logging_3",
+                  question: "Are logs centralized in a SIEM or monitoring tool?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "Cloud-native: Security Hub, Sentinel, SCC; Vendor: Splunk, Sumo Logic"
+                },
+                {
+                  id: "logging_4",
+                  question: "Are alerts configured for anomalous activity?",
+                  options: ["A) Yes, fully", "B) Some", "C) None"],
+                  tools: "AWS GuardDuty, Azure Defender, GCP SCC; Vendor: Rapid7, Palo Alto Cortex XDR"
+                },
+                {
+                  id: "logging_5",
+                  question: "Are logs protected from tampering and retained for compliance?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "Cloud-native encryption & retention; Vendor: Varonis, NetApp Cloud Backup"
+                }
+              ]
+            },
+            {
+              title: "Threat & Vulnerability Management",
+              objective: "Identify and remediate security weaknesses",
+              questions: [
+                {
+                  id: "threat_1",
+                  question: "Are workloads continuously scanned for vulnerabilities?",
+                  options: ["A) Yes, automated", "B) Occasionally", "C) Never"],
+                  tools: "Cloud-native: AWS Inspector, Defender for Cloud, SCC; Vendor: Qualys, Tenable"
+                },
+                {
+                  id: "threat_2",
+                  question: "Are patches applied promptly to OS and apps?",
+                  options: ["A) Yes, automated", "B) Sometimes manual", "C) Never"],
+                  tools: "Patch Manager, Azure Update Management, GCP OS Patch Automation"
+                },
+                {
+                  id: "threat_3",
+                  question: "Are container images scanned before deployment?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "AWS ECR scan, Azure Container Registry, GCP Container Analysis; Vendor: Aqua Security, Twistlock"
+                },
+                {
+                  id: "threat_4",
+                  question: "Is runtime threat detection enabled for workloads?",
+                  options: ["A) Yes", "B) Partial", "C) No"],
+                  tools: "AWS GuardDuty, Azure Defender, GCP SCC; Vendor: CrowdStrike, Trend Micro Deep Security"
+                },
+                {
+                  id: "threat_5",
+                  question: "Are remediation actions tracked and verified?",
+                  options: ["A) Yes", "B) Some", "C) No"],
+                  tools: "Cloud-native tracking dashboards; Vendor: ServiceNow, Jira, Palo Alto Cortex XSOAR"
+                }
+              ]
+            },
+            {
+              title: "Incident Response & Recovery",
+              objective: "Respond effectively to security events",
+              questions: [
+                {
+                  id: "incident_1",
+                  question: "Are incident response playbooks defined for cloud environments?",
+                  options: ["A) Yes", "B) Partial", "C) No"],
+                  tools: "Cloud-native: AWS CloudWatch events, Azure Sentinel playbooks, GCP SCC Playbooks; Vendor: Palo Alto Cortex XSOAR, ServiceNow IR"
+                },
+                {
+                  id: "incident_2",
+                  question: "Are logs retained and accessible for forensic analysis?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "Cloud-native logging retention, encrypted storage; Vendor: Varonis, Splunk"
+                },
+                {
+                  id: "incident_3",
+                  question: "Are automated response mechanisms in place?",
+                  options: ["A) Yes", "B) Some", "C) No"],
+                  tools: "Lambda / Azure Functions / GCP Cloud Functions; Vendor: Cortex XSOAR, Phantom"
+                },
+                {
+                  id: "incident_4",
+                  question: "Is cross-account/project access available for IR teams?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "Cloud-native IAM delegation; Vendor: CyberArk, Okta Privileged Access"
+                },
+                {
+                  id: "incident_5",
+                  question: "Are IR procedures tested regularly?",
+                  options: ["A) Yes, quarterly", "B) Rarely", "C) Never"],
+                  tools: "Tabletop exercises, automated drills, cloud-native test frameworks"
+                }
+              ]
+            },
+            {
+              title: "Workload & Application Security",
+              objective: "Secure workloads and applications",
+              questions: [
+                {
+                  id: "workload_1",
+                  question: "Are workloads hardened to CIS / vendor benchmarks?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "Cloud-native: AWS Systems Manager, Azure Security Center, GCP SCC; Vendor: Trend Micro, Prisma Cloud"
+                },
+                {
+                  id: "workload_2",
+                  question: "Are container images scanned for vulnerabilities before deployment?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "AWS ECR, Azure Container Registry, GCP Container Analysis; Vendor: Aqua Security, Twistlock"
+                },
+                {
+                  id: "workload_3",
+                  question: "Are runtime protections enabled (EDR, WAF, Shield)?",
+                  options: ["A) Yes", "B) Partial", "C) No"],
+                  tools: "AWS WAF / Shield, Azure WAF, GCP Cloud Armor; Vendor: CrowdStrike, Palo Alto Prisma Cloud"
+                },
+                {
+                  id: "workload_4",
+                  question: "Are secrets stored securely and never in code?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "AWS Secrets Manager, Azure Key Vault, GCP Secret Manager; Vendor: HashiCorp Vault"
+                },
+                {
+                  id: "workload_5",
+                  question: "Are apps and workloads tested for security issues regularly?",
+                  options: ["A) Yes", "B) Occasionally", "C) No"],
+                  tools: "Cloud-native scanning & security assessments; Vendor: Qualys, Tenable, Veracode"
+                }
+              ]
+            },
+            {
+              title: "Compliance & Governance",
+              objective: "Ensure regulatory and policy adherence",
+              questions: [
+                {
+                  id: "compliance_1",
+                  question: "Are policies defined for all critical cloud resources?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "AWS Config, Azure Policy, GCP Organization Policy; Vendor: CloudCheckr, Drata"
+                },
+                {
+                  id: "compliance_2",
+                  question: "Are automated guardrails enforced (policy-as-code)?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "Cloud-native enforcement; Vendor: Terraform Sentinel, Checkov, Prisma Cloud"
+                },
+                {
+                  id: "compliance_3",
+                  question: "Are compliance requirements monitored continuously?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "Cloud-native: Security Hub, Defender for Cloud, SCC; Vendor: Qualys, Rapid7"
+                },
+                {
+                  id: "compliance_4",
+                  question: "Are audits conducted regularly to verify policy adherence?",
+                  options: ["A) Yes", "B) Occasionally", "C) No"],
+                  tools: "Cloud-native dashboards, vendor audit tooling; Vendor: Drata, Vanta"
+                },
+                {
+                  id: "compliance_5",
+                  question: "Are violations remediated promptly?",
+                  options: ["A) Yes", "B) Partially", "C) No"],
+                  tools: "Cloud-native remediation, automated scripts; Vendor: Cortex XSOAR, ServiceNow"
+                }
+              ]
+            }
+          ];
+
+          const handleResponse = (questionId, value) => {
+            setResponses(prev => ({ ...prev, [questionId]: value }));
+          };
+
+          const handleComment = (questionId, value) => {
+            setComments(prev => ({ ...prev, [questionId]: value }));
+          };
+
+          const handleVendor = (questionId, value) => {
+            setVendors(prev => ({ ...prev, [questionId]: value }));
+          };
+
+          const calculateProgress = () => {
+            const totalQuestions = sections.reduce((acc, section) => acc + section.questions.length, 0);
+            const answeredQuestions = Object.keys(responses).length;
+            return Math.round((answeredQuestions / totalQuestions) * 100);
+          };
+
+          const exportToExcel = () => {
+            const workbook = XLSX.utils.book_new();
+            
+            // Summary sheet
+            const summaryData = [
+              ['Hybrid and Multi-Cloud Security Assessment Report'],
+              [''],
+              ['Organization:', organizationInfo.organization],
+              ['Assessor:', organizationInfo.assessor],
+              ['Date:', organizationInfo.date],
+              ['Completion:', `${calculateProgress()}%`],
+              [''],
+              ['Section', 'Total Questions', 'Answered', 'Completion %']
+            ];
+
+            sections.forEach(section => {
+              const totalQuestions = section.questions.length;
+              const answered = section.questions.filter(q => responses[q.id]).length;
+              const percentage = Math.round((answered / totalQuestions) * 100);
+              summaryData.push([section.title, totalQuestions, answered, `${percentage}%`]);
+            });
+
+            const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+            summarySheet['!cols'] = [{ wch: 40 }, { wch: 15 }, { wch: 10 }, { wch: 15 }];
+            XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+
+            // Detailed responses sheet
+            const detailData = [
+              ['Section', 'Question #', 'Question', 'Answer', 'Vendor/Tool Used', 'Comments', 'Recommended Tools']
+            ];
+
+            sections.forEach(section => {
+              section.questions.forEach((q, idx) => {
+                detailData.push([
+                  section.title,
+                  idx + 1,
+                  q.question,
+                  responses[q.id] || 'Not Answered',
+                  vendors[q.id] || '',
+                  comments[q.id] || '',
+                  q.tools
+                ]);
+              });
+            });
+
+            const detailSheet = XLSX.utils.aoa_to_sheet(detailData);
+            detailSheet['!cols'] = [
+              { wch: 30 },
+              { wch: 10 },
+              { wch: 60 },
+              { wch: 30 },
+              { wch: 40 },
+              { wch: 40 },
+              { wch: 60 }
+            ];
+            XLSX.utils.book_append_sheet(workbook, detailSheet, 'Detailed Responses');
+
+            // Score analysis sheet
+            const scoreData = [
+              ['Security Score Analysis'],
+              [''],
+              ['Section', 'Score', 'Status', 'Recommendations']
+            ];
+
+            sections.forEach(section => {
+              const sectionResponses = section.questions
+                .map(q => responses[q.id])
+                .filter(r => r);
+              
+              const aCount = sectionResponses.filter(r => r.startsWith('A)')).length;
+              const total = section.questions.length;
+              const score = total > 0 ? Math.round((aCount / total) * 100) : 0;
+              
+              let status = 'Needs Improvement';
+              if (score >= 80) status = 'Strong';
+              else if (score >= 60) status = 'Moderate';
+              
+              let recommendation = '';
+              if (score < 60) recommendation = 'Priority area for security enhancement';
+              else if (score < 80) recommendation = 'Continue improvements and regular reviews';
+              else recommendation = 'Maintain current standards and monitor';
+
+              scoreData.push([section.title, `${score}%`, status, recommendation]);
+            });
+
+            const scoreSheet = XLSX.utils.aoa_to_sheet(scoreData);
+            scoreSheet['!cols'] = [{ wch: 35 }, { wch: 10 }, { wch: 20 }, { wch: 50 }];
+            XLSX.utils.book_append_sheet(workbook, scoreSheet, 'Score Analysis');
+
+            // Generate and download
+            const fileName = `Security_Assessment_${organizationInfo.organization.replace(/\s+/g, '_')}_${organizationInfo.date}.xlsx`;
+            XLSX.writeFile(workbook, fileName);
+          };
+
+          const exportToPDF = () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 15;
+            const contentWidth = pageWidth - (margin * 2);
+            let yPosition = margin;
+            
+            // Helper function to add new page if needed
+            const checkPageBreak = (heightNeeded) => {
+              if (yPosition + heightNeeded > pageHeight - margin) {
+                doc.addPage();
+                yPosition = margin;
+                return true;
+              }
+              return false;
+            };
+            
+            // Helper function to wrap text
+            const wrapText = (text, maxWidth, fontSize) => {
+              doc.setFontSize(fontSize);
+              return doc.splitTextToSize(text, maxWidth);
+            };
+            
+            // Title
+            doc.setFillColor(218, 41, 28);
+            doc.rect(0, 0, pageWidth, 35, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(18);
+            doc.setFont(undefined, 'bold');
+            doc.text('Hybrid and Multi-Cloud Security Assessment', pageWidth / 2, 15, { align: 'center' });
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.text('based on Cloud Service Providers Well-Architected Framework Security Pillar', pageWidth / 2, 25, { align: 'center' });
+            
+            yPosition = 45;
+            
+            // Organization Information
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text('Assessment Information', margin, yPosition);
+            yPosition += 8;
+            
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Organization: ${organizationInfo.organization || 'N/A'}`, margin, yPosition);
+            yPosition += 6;
+            doc.text(`Assessor: ${organizationInfo.assessor || 'N/A'}`, margin, yPosition);
+            yPosition += 6;
+            doc.text(`Date: ${organizationInfo.date}`, margin, yPosition);
+            yPosition += 6;
+            doc.text(`Completion: ${calculateProgress()}%`, margin, yPosition);
+            yPosition += 12;
+            
+            // Summary by Section
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text('Summary by Section', margin, yPosition);
+            yPosition += 8;
+            
+            sections.forEach(section => {
+              checkPageBreak(10);
+              const totalQuestions = section.questions.length;
+              const answered = section.questions.filter(q => responses[q.id]).length;
+              const percentage = Math.round((answered / totalQuestions) * 100);
+              
+              doc.setFontSize(10);
+              doc.setFont(undefined, 'bold');
+              doc.text(section.title, margin, yPosition);
+              doc.setFont(undefined, 'normal');
+              doc.text(`${answered}/${totalQuestions} (${percentage}%)`, pageWidth - margin - 30, yPosition);
+              yPosition += 6;
+            });
+            
+            yPosition += 8;
+            
+            // Detailed Responses
+            sections.forEach((section, sectionIdx) => {
+              checkPageBreak(20);
+              
+              // Section Header
+              doc.setFillColor(240, 240, 240);
+              doc.rect(margin, yPosition - 5, contentWidth, 10, 'F');
+              doc.setTextColor(218, 41, 28);
+              doc.setFontSize(12);
+              doc.setFont(undefined, 'bold');
+              doc.text(`${sectionIdx + 1}. ${section.title}`, margin + 2, yPosition);
+              yPosition += 10;
+              
+              doc.setTextColor(100, 100, 100);
+              doc.setFontSize(9);
+              doc.setFont(undefined, 'italic');
+              const objectiveLines = wrapText(section.objective, contentWidth - 4, 9);
+              objectiveLines.forEach(line => {
+                checkPageBreak(5);
+                doc.text(line, margin + 2, yPosition);
+                yPosition += 4;
+              });
+              yPosition += 4;
+              
+              // Questions
+              section.questions.forEach((q, qIdx) => {
+                checkPageBreak(25);
+                
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'bold');
+                doc.text(`Q${qIdx + 1}.`, margin, yPosition);
+                
+                const questionLines = wrapText(q.question, contentWidth - 10, 10);
+                let questionY = yPosition;
+                questionLines.forEach(line => {
+                  doc.text(line, margin + 6, questionY);
+                  questionY += 5;
+                });
+                yPosition = questionY + 1;
+                
+                // Answer
+                doc.setFont(undefined, 'normal');
+                const answer = responses[q.id] || 'Not Answered';
+                const answerColor = answer.startsWith('A)') ? [0, 150, 0] : 
+                                   answer.startsWith('C)') ? [218, 41, 28] : 
+                                   [200, 150, 0];
+                doc.setTextColor(...answerColor);
+                doc.text(`Answer: ${answer}`, margin + 6, yPosition);
+                yPosition += 5;
+                
+                // Vendor/Tool
+                doc.setTextColor(0, 0, 0);
+                if (vendors[q.id]) {
+                  doc.text(`Vendor/Tool: ${vendors[q.id]}`, margin + 6, yPosition);
+                  yPosition += 5;
+                }
+                
+                // Comments
+                if (comments[q.id]) {
+                  checkPageBreak(10);
+                  doc.setTextColor(80, 80, 80);
+                  doc.setFontSize(9);
+                  const commentLines = wrapText(`Comments: ${comments[q.id]}`, contentWidth - 10, 9);
+                  commentLines.forEach(line => {
+                    checkPageBreak(4);
+                    doc.text(line, margin + 6, yPosition);
+                    yPosition += 4;
+                  });
+                  doc.setFontSize(10);
+                }
+                
+                yPosition += 3;
+                
+                // Divider line
+                doc.setDrawColor(220, 220, 220);
+                doc.line(margin, yPosition, pageWidth - margin, yPosition);
+                yPosition += 5;
+              });
+              
+              yPosition += 3;
+            });
+            
+            // Footer on each page
+            const totalPages = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
+              doc.setPage(i);
+              doc.setTextColor(150, 150, 150);
+              doc.setFontSize(8);
+              doc.text(
+                `Page ${i} of ${totalPages} • ${organizationInfo.organization || 'Security Assessment'} • ${organizationInfo.date}`,
+                pageWidth / 2,
+                pageHeight - 10,
+                { align: 'center' }
+              );
+            }
+            
+            // Save PDF
+            const fileName = `Security_Assessment_${organizationInfo.organization.replace(/\s+/g, '_')}_${organizationInfo.date}.pdf`;
+            doc.save(fileName);
+          };
+
+          const nextSection = () => {
+            if (currentSection < sections.length - 1) {
+              setCurrentSection(currentSection + 1);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          };
+
+          const prevSection = () => {
+            if (currentSection > 0) {
+              setCurrentSection(currentSection - 1);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          };
+
+          const section = sections[currentSection];
+
+          return (
+            <div style={{ 
+              minHeight: '100vh', 
+              background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #0d0d0d 100%)',
+              fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+            }}>
+              <header style={{
+                background: 'linear-gradient(90deg, rgba(0,0,0,0.95) 0%, rgba(26,26,26,0.9) 100%)',
+                borderBottom: '1px solid rgba(218, 41, 28, 0.3)',
+                padding: '1.5rem 2rem',
+                backdropFilter: 'blur(10px)',
+                position: 'sticky',
+                top: 0,
+                zIndex: 1000,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+              }}>
+                <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                  <h1 style={{
+                    margin: 0,
+                    fontSize: '1.75rem',
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #DA291C 0%, #ff4d42 50%, #ff6b61 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    letterSpacing: '-0.025em'
+                  }}>
+                    Hybrid and Multi-Cloud Security Assessment
+                  </h1>
+                  <p style={{ 
+                    margin: '0.5rem 0 0 0', 
+                    color: '#94a3b8',
+                    fontSize: '0.875rem',
+                    fontWeight: 500
+                  }}>
+                    based on Cloud Service Providers Well-Architected Framework Security Pillar
+                  </p>
+                </div>
+              </header>
+
+              <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
+                
+                {currentSection === 0 && Object.values(organizationInfo).some(v => !v || v === new Date().toISOString().split('T')[0]) && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(218, 41, 28, 0.08) 0%, rgba(26, 26, 26, 0.5) 100%)',
+                    border: '1px solid rgba(218, 41, 28, 0.3)',
+                    borderRadius: '16px',
+                    padding: '2rem',
+                    marginBottom: '2rem',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+                  }}>
+                    <h2 style={{ 
+                      margin: '0 0 1.5rem 0', 
+                      color: '#e2e8f0',
+                      fontSize: '1.5rem',
+                      fontWeight: 600
+                    }}>
+                      Assessment Information
+                    </h2>
+                    <div style={{ display: 'grid', gap: '1.25rem' }}>
+                      {[
+                        { label: 'Organization Name', key: 'organization', type: 'text' },
+                        { label: 'Assessor Name', key: 'assessor', type: 'text' },
+                        { label: 'Assessment Date', key: 'date', type: 'date' }
+                      ].map(field => (
+                        <div key={field.key}>
+                          <label style={{
+                            display: 'block',
+                            marginBottom: '0.5rem',
+                            color: '#cbd5e1',
+                            fontSize: '0.875rem',
+                            fontWeight: 500,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}>
+                            {field.label}
+                          </label>
+                          <input
+                            type={field.type}
+                            value={organizationInfo[field.key]}
+                            onChange={(e) => setOrganizationInfo(prev => ({
+                              ...prev,
+                              [field.key]: e.target.value
+                            }))}
+                            style={{
+                              width: '100%',
+                              padding: '0.875rem 1rem',
+                              background: 'rgba(15, 23, 42, 0.6)',
+                              border: '1px solid rgba(148, 163, 184, 0.2)',
+                              borderRadius: '8px',
+                              color: '#e2e8f0',
+                              fontSize: '1rem',
+                              outline: 'none',
+                              transition: 'all 0.2s ease',
+                              fontFamily: 'inherit'
+                            }}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = '#3b82f6';
+                              e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = 'rgba(148, 163, 184, 0.2)';
+                              e.target.style.boxShadow = 'none';
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{
+                  background: 'rgba(15, 23, 42, 0.6)',
+                  borderRadius: '16px',
+                  padding: '1.5rem',
+                  marginBottom: '2rem',
+                  border: '1px solid rgba(148, 163, 184, 0.1)'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '1rem'
+                  }}>
+                    <span style={{ color: '#cbd5e1', fontSize: '0.875rem', fontWeight: 500 }}>
+                      Overall Progress
+                    </span>
+                    <span style={{ color: '#DA291C', fontSize: '1.125rem', fontWeight: 700 }}>
+                      {calculateProgress()}%
+                    </span>
+                  </div>
+                  <div style={{
+                    height: '12px',
+                    background: 'rgba(30, 41, 59, 0.8)',
+                    borderRadius: '999px',
+                    overflow: 'hidden',
+                    position: 'relative'
+                  }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${calculateProgress()}%`,
+                      background: 'linear-gradient(90deg, #DA291C 0%, #ff4d42 100%)',
+                      borderRadius: '999px',
+                      transition: 'width 0.5s ease',
+                      boxShadow: '0 0 20px rgba(218, 41, 28, 0.5)'
+                    }} />
+                  </div>
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  gap: '0.5rem',
+                  marginBottom: '2rem',
+                  overflowX: 'auto',
+                  padding: '0.5rem',
+                  background: 'rgba(15, 23, 42, 0.4)',
+                  borderRadius: '12px'
+                }}>
+                  {sections.map((s, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentSection(idx)}
+                      style={{
+                        padding: '0.75rem 1.25rem',
+                        background: currentSection === idx 
+                          ? 'linear-gradient(135deg, #DA291C 0%, #ff4d42 100%)' 
+                          : 'rgba(30, 30, 30, 0.5)',
+                        color: currentSection === idx ? '#fff' : '#94a3b8',
+                        border: currentSection === idx 
+                          ? '1px solid rgba(218, 41, 28, 0.6)'
+                          : '1px solid rgba(148, 163, 184, 0.1)',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.2s ease',
+                        fontFamily: 'inherit'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (currentSection !== idx) {
+                          e.target.style.background = 'rgba(30, 41, 59, 0.8)';
+                          e.target.style.color = '#e2e8f0';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (currentSection !== idx) {
+                          e.target.style.background = 'rgba(30, 41, 59, 0.5)';
+                          e.target.style.color = '#94a3b8';
+                        }
+                      }}
+                    >
+                      {idx + 1}. {s.title.split('&')[0].trim()}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(26, 26, 26, 0.6) 100%)',
+                  borderRadius: '16px',
+                  padding: '2.5rem',
+                  border: '1px solid rgba(218, 41, 28, 0.2)',
+                  boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+                  marginBottom: '2rem'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '1rem',
+                    marginBottom: '1.5rem'
+                  }}>
+                    <div style={{
+                      fontSize: '2.5rem',
+                      fontWeight: 700,
+                      color: '#DA291C',
+                      lineHeight: 1
+                    }}>
+                      {currentSection + 1}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <h2 style={{
+                        margin: 0,
+                        fontSize: '1.875rem',
+                        fontWeight: 700,
+                        color: '#e2e8f0',
+                        marginBottom: '0.5rem'
+                      }}>
+                        {section.title}
+                      </h2>
+                      <p style={{
+                        margin: 0,
+                        color: '#94a3b8',
+                        fontSize: '1rem',
+                        fontWeight: 500
+                      }}>
+                        {section.objective}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    {section.questions.map((q, idx) => (
+                      <div
+                        key={q.id}
+                        style={{
+                          background: 'rgba(0, 0, 0, 0.5)',
+                          borderRadius: '12px',
+                          padding: '1.75rem',
+                          border: responses[q.id] 
+                            ? '1px solid rgba(218, 41, 28, 0.5)' 
+                            : '1px solid rgba(148, 163, 184, 0.1)',
+                          transition: 'all 0.3s ease'
+                        }}
+                      >
+                        <div style={{
+                          display: 'flex',
+                          gap: '1rem',
+                          marginBottom: '1.25rem'
+                        }}>
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            background: responses[q.id] 
+                              ? 'linear-gradient(135deg, #DA291C 0%, #ff4d42 100%)' 
+                              : 'rgba(30, 30, 30, 0.8)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.875rem',
+                            fontWeight: 700,
+                            color: responses[q.id] ? '#fff' : '#64748b',
+                            flexShrink: 0
+                          }}>
+                            {idx + 1}
+                          </div>
+                          <p style={{
+                            margin: 0,
+                            fontSize: '1.0625rem',
+                            fontWeight: 500,
+                            color: '#e2e8f0',
+                            lineHeight: 1.6
+                          }}>
+                            {q.question}
+                          </p>
+                        </div>
+
+                        <div style={{
+                          display: 'grid',
+                          gap: '0.75rem',
+                          marginBottom: '1.25rem'
+                        }}>
+                          {q.options.map((option) => (
+                            <label
+                              key={option}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '1rem',
+                                background: responses[q.id] === option 
+                                  ? 'rgba(218, 41, 28, 0.15)' 
+                                  : 'rgba(0, 0, 0, 0.6)',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                border: responses[q.id] === option 
+                                  ? '2px solid #DA291C' 
+                                  : '2px solid transparent',
+                                transition: 'all 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (responses[q.id] !== option) {
+                                  e.currentTarget.style.background = 'rgba(26, 26, 26, 0.8)';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (responses[q.id] !== option) {
+                                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.6)';
+                                }
+                              }}
+                            >
+                              <input
+                                type="radio"
+                                name={q.id}
+                                value={option}
+                                checked={responses[q.id] === option}
+                                onChange={(e) => handleResponse(q.id, e.target.value)}
+                                style={{
+                                  marginRight: '0.875rem',
+                                  width: '20px',
+                                  height: '20px',
+                                  accentColor: '#DA291C',
+                                  cursor: 'pointer'
+                                }}
+                              />
+                              <span style={{
+                                color: responses[q.id] === option ? '#e2e8f0' : '#cbd5e1',
+                                fontSize: '0.9375rem',
+                                fontWeight: responses[q.id] === option ? 600 : 400
+                              }}>
+                                {option}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+
+                        <div style={{ marginBottom: '1.25rem' }}>
+                          <label style={{
+                            display: 'block',
+                            marginBottom: '0.5rem',
+                            color: '#94a3b8',
+                            fontSize: '0.8125rem',
+                            fontWeight: 500,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}>
+                            Vendor Solution or Cloud-Native Tool in Use
+                          </label>
+                          <input
+                            type="text"
+                            value={vendors[q.id] || ''}
+                            onChange={(e) => handleVendor(q.id, e.target.value)}
+                            placeholder=""
+                            style={{
+                              width: '100%',
+                              padding: '0.875rem 1rem',
+                              background: 'rgba(15, 23, 42, 0.8)',
+                              border: '1px solid rgba(148, 163, 184, 0.2)',
+                              borderRadius: '8px',
+                              color: '#e2e8f0',
+                              fontSize: '0.9375rem',
+                              outline: 'none',
+                              transition: 'all 0.2s ease',
+                              fontFamily: 'inherit'
+                            }}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = '#3b82f6';
+                              e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = 'rgba(148, 163, 184, 0.2)';
+                              e.target.style.boxShadow = 'none';
+                            }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{
+                            display: 'block',
+                            marginBottom: '0.5rem',
+                            color: '#94a3b8',
+                            fontSize: '0.8125rem',
+                            fontWeight: 500,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}>
+                            Additional Comments
+                          </label>
+                          <textarea
+                            value={comments[q.id] || ''}
+                            onChange={(e) => handleComment(q.id, e.target.value)}
+                            placeholder="Add additional notes, observations, or context..."
+                            style={{
+                              width: '100%',
+                              minHeight: '80px',
+                              padding: '0.875rem',
+                              background: 'rgba(15, 23, 42, 0.8)',
+                              border: '1px solid rgba(148, 163, 184, 0.2)',
+                              borderRadius: '8px',
+                              color: '#e2e8f0',
+                              fontSize: '0.9375rem',
+                              resize: 'vertical',
+                              outline: 'none',
+                              transition: 'all 0.2s ease',
+                              fontFamily: 'inherit'
+                            }}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = '#3b82f6';
+                              e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = 'rgba(148, 163, 184, 0.2)';
+                              e.target.style.boxShadow = 'none';
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                  marginBottom: '2rem'
+                }}>
+                  <button
+                    onClick={prevSection}
+                    disabled={currentSection === 0}
+                    style={{
+                      padding: '1rem 2rem',
+                      background: currentSection === 0 
+                        ? 'rgba(30, 41, 59, 0.3)' 
+                        : 'rgba(30, 41, 59, 0.8)',
+                      color: currentSection === 0 ? '#475569' : '#e2e8f0',
+                      border: '1px solid rgba(148, 163, 184, 0.2)',
+                      borderRadius: '10px',
+                      cursor: currentSection === 0 ? 'not-allowed' : 'pointer',
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      transition: 'all 0.2s ease',
+                      fontFamily: 'inherit'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (currentSection !== 0) {
+                        e.target.style.background = 'rgba(30, 41, 59, 1)';
+                        e.target.style.transform = 'translateY(-2px)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (currentSection !== 0) {
+                        e.target.style.background = 'rgba(30, 41, 59, 0.8)';
+                        e.target.style.transform = 'translateY(0)';
+                      }
+                    }}
+                  >
+                    ← Previous Section
+                  </button>
+
+                  {currentSection < sections.length - 1 ? (
+                    <button
+                      onClick={nextSection}
+                      style={{
+                        padding: '1rem 2rem',
+                        background: 'linear-gradient(135deg, #DA291C 0%, #ff4d42 100%)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        transition: 'all 0.2s ease',
+                        fontFamily: 'inherit',
+                        boxShadow: '0 4px 20px rgba(218, 41, 28, 0.3)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.transform = 'translateY(-2px)';
+                        e.target.style.boxShadow = '0 6px 25px rgba(218, 41, 28, 0.4)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.boxShadow = '0 4px 20px rgba(218, 41, 28, 0.3)';
+                      }}
+                    >
+                      Next Section →
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      <button
+                        onClick={exportToPDF}
+                        style={{
+                          padding: '1rem 2.5rem',
+                          background: 'linear-gradient(135deg, #DC2626 0%, #EF4444 100%)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          fontSize: '1.0625rem',
+                          fontWeight: 700,
+                          transition: 'all 0.2s ease',
+                          fontFamily: 'inherit',
+                          boxShadow: '0 4px 20px rgba(220, 38, 38, 0.3)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.transform = 'translateY(-2px) scale(1.02)';
+                          e.target.style.boxShadow = '0 6px 25px rgba(220, 38, 38, 0.4)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.transform = 'translateY(0) scale(1)';
+                          e.target.style.boxShadow = '0 4px 20px rgba(220, 38, 38, 0.3)';
+                        }}
+                      >
+                        📄 Export to PDF
+                      </button>
+                      <button
+                        onClick={exportToExcel}
+                        style={{
+                          padding: '1rem 2.5rem',
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          fontSize: '1.0625rem',
+                          fontWeight: 700,
+                          transition: 'all 0.2s ease',
+                          fontFamily: 'inherit',
+                          boxShadow: '0 4px 20px rgba(16, 185, 129, 0.3)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.transform = 'translateY(-2px) scale(1.02)';
+                          e.target.style.boxShadow = '0 6px 25px rgba(16, 185, 129, 0.4)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.transform = 'translateY(0) scale(1)';
+                          e.target.style.boxShadow = '0 4px 20px rgba(16, 185, 129, 0.3)';
+                        }}
+                      >
+                        📊 Export to Excel
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{
+                  textAlign: 'center',
+                  padding: '2rem 0',
+                  color: '#64748b',
+                  fontSize: '0.875rem',
+                  borderTop: '1px solid rgba(148, 163, 184, 0.1)'
+                }}>
+                  <p style={{ margin: 0 }}>
+                    Hybrid and Multi-Cloud Security Assessment based on Cloud Service Providers Well-Architected Framework Security Pillar
+                  </p>
+                  <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.8125rem' }}>
+                    AWS • Azure • GCP
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<SecurityAssessment />);
+    </script>
+</body>
+</html>

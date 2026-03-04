@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  security-assessment:
+    build: .
+    container_name: security-assessment-app
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    labels:
+      - "description=Hybrid and Multi-Cloud Security Assessment"
